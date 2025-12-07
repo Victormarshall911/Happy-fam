@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contribution Admin</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <div class="container">
+        <nav class="sidebar">
+            <h2>Admin Panel</h2>
+            <ul>
+                <li onclick="showSection('dashboard')">Dashboard</li>
+                <li onclick="showSection('all-customers')">All Customers</li>
+                <li onclick="showSection('register')">Register New</li>
+                <li onclick="showSection('deposit')">Deposit / Ledger</li>
+                <li onclick="showSection('withdrawal')">Withdrawal</li> 
+            </ul>
+        </nav>
+
+        <main class="content">
+            
+            <div id="dashboard" class="section active">
+                <h1>Overview</h1>
+                <div class="stats-grid">
+                    <div class="card">
+                        <h3>Total Customers</h3>
+                        <p id="total-customers">0</p>
+                    </div>
+                    <div class="card">
+                        <h3>Total Money in System</h3>
+                        <p id="total-money">₦ 0</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="register" class="section">
+                <h1>Register Customer</h1>
+                <form id="register-form">
+                    <input type="text" id="reg-name" placeholder="Full Name" required>
+                    <input type="text" id="reg-id" placeholder="Assign ID (e.g. 101)" required>
+                    <input type="text" id="reg-pin" placeholder="Set 4-Digit PIN" maxlength="4" required>
+                    <input type="number" id="reg-rate" placeholder="Daily Contribution Amount" required>
+                    <button type="submit">Create Customer</button>
+                </form>
+            </div>
+
+            <div id="all-customers" class="section">
+                <h1>Customer List</h1>
+                <table id="customers-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Daily Rate</th>
+                            <th>Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div id="deposit" class="section">
+                <h1>Deposit / Manage Ledger</h1>
+                <div class="search-bar">
+                    <input type="text" id="dep-search-id" placeholder="Enter Customer ID">
+                    <button onclick="loadCustomerLedger('dep-search-id', 'deposit')">Search</button>
+                </div>
+                
+                <div id="deposit-profile" class="profile-card hidden">
+                    <h2 id="dep-name">Customer Name</h2>
+                    <p>Balance: <span id="dep-balance">0</span></p>
+                    <p>Rate: <span id="dep-rate">0</span></p>
+                </div>
+
+                <div id="deposit-grid" class="months-container hidden"></div>
+            </div>
+
+            <div id="withdrawal" class="section">
+                <h1>Withdrawal / Correction</h1>
+                <p class="warning">Untick boxes to reverse payments.</p>
+                <div class="search-bar">
+                    <input type="text" id="with-search-id" placeholder="Enter Customer ID">
+                    <button onclick="loadCustomerLedger('with-search-id', 'withdrawal')">Search</button>
+                </div>
+
+                <div id="with-profile" class="profile-card hidden">
+                    <h2 id="with-name">Customer Name</h2>
+                    <p>Balance: <span id="with-balance">0</span></p>
+                </div>
+
+                <div id="with-grid" class="months-container hidden"></div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

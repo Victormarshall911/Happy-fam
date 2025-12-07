@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { margin: 0; font-family: sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; min-height: 100vh; }
+        .mobile-container { width: 100%; max-width: 400px; padding: 20px; box-sizing: border-box; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-top: 20px; }
+        
+        .balance-box { background: #4CAF50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+        .balance-box h1 { margin: 10px 0; font-size: 2.5rem; }
+        
+        .history-list { list-style: none; padding: 0; }
+        .history-item { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
+        .date-badge { font-size: 0.75rem; color: #888; margin-top: 4px; }
+        
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
+        .input-group input { width: 100%; padding: 12px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 6px; }
+        
+        .btn { width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; }
+        .btn:hover { background: #45a049; }
+        .btn-red { background: #ff4444; margin-top: 20px; }
+        .btn-red:hover { background: #e03333; }
+        
+        .error-msg { color: red; display: none; text-align: center; margin-top: 10px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <div class="mobile-container">
+        
+        <div id="login-view" class="card">
+            <h2 style="text-align: center;">Welcome</h2>
+            <p style="text-align: center; color: #666;">Login to view your contributions</p>
+            
+            <form id="customer-login-form">
+                <div class="input-group">
+                    <label>Full Name</label>
+                    <input type="text" id="login-name" placeholder="Enter your name" required>
+                </div>
+                <div class="input-group">
+                    <label>4-Digit PIN</label>
+                    <input type="password" id="login-pin" placeholder="Enter PIN" maxlength="4" required>
+                </div>
+                <button type="submit" class="btn">Login</button>
+            </form>
+            <p id="login-error" class="error-msg">Name or PIN incorrect.</p>
+        </div>
+
+        <div id="dashboard-view" class="card" style="display: none;">
+            <h2 id="welcome-name">Hello, User</h2>
+            
+            <div class="balance-box">
+                <small>Current Balance</small>
+                <h1 id="my-balance">₦ 0</h1>
+            </div>
+
+            <h3>Transaction History</h3>
+            <ul id="history-list" class="history-list"></ul>
+
+            <button onclick="location.reload()" class="btn btn-red">Logout</button>
+        </div>
+
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        const supabaseClient = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
+
+        // --- LOGIN LOGIC ---
+        document.getElementById('customer-login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const nameInput = document.getElementById('login-name').value.trim();
+            const pinInput = document.getElementById('login-pin').value.trim();
+            const errorMsg = document.getElementById('login-error');
+            
+            errorMsg.style.display = 'none';
+
+            // Check Supabase for Name AND Pin
+            // .ilike() makes the name search case-insensitive (John = john)
+            const { data: customers, error } = await supabaseClient
+                .from('customers')
+                .select('*')
+                .ilike('full_name', nameInput) 
+                .eq('pin', pinInput);
+
+            if (error || !customers || customers.length === 0) {
+                console.error(error);
+                errorMsg.innerText = "Name or PIN incorrect.";
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            // Success: Load Dashboard for the first matching customer
+            loadCustomerDashboard(customers[0]);
+        });
+
+        // --- DASHBOARD LOGIC ---
+        async function loadCustomerDashboard(customer) {
+            document.getElementById('login-view').style.display = 'none';
+            document.getElementById('dashboard-view').style.display = 'block';
+
+            document.getElementById('welcome-name').innerText = `Hello, ${customer.full_name}`;
+            document.getElementById('my-balance').innerText = `₦ ${customer.current_balance.toLocaleString()}`;
+
+            // Fetch Transactions
+            const { data: txs } = await supabaseClient
+                .from('transactions')
+                .select('*')
+                .eq('customer_id', customer.id)
+                .order('created_at', { ascending: false });
+
+            const listContainer = document.getElementById('history-list');
+            listContainer.innerHTML = '';
+
+            if (txs && txs.length > 0) {
+                txs.forEach(tx => {
+                    const dateObj = new Date(tx.created_at);
+                    const dateStr = dateObj.toLocaleDateString();
+                    const isDeposit = tx.type === 'DEPOSIT';
+                    const color = isDeposit ? '#4CAF50' : '#ff4444';
+                    const sign = isDeposit ? '+' : '';
+
+                    listContainer.innerHTML += `
+                        <li class="history-item">
+                            <div>
+                                <div style="font-weight:bold;">${tx.type}</div>
+                                <div style="font-size:0.8rem; color:#666;">${tx.description}</div>
+                                <div class="date-badge">${dateStr}</div>
+                            </div>
+                            <div style="font-weight: bold; color: ${color}; font-size: 1.1rem;">
+                                ${sign} ₦ ${Number(tx.amount).toLocaleString()}
+                            </div>
+                        </li>`;
+                });
+            } else {
+                listContainer.innerHTML = '<li style="text-align:center; color:#888;">No transactions found.</li>';
+            }
+        }
+    </script>
+</body>
+</html>
