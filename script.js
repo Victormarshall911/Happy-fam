@@ -1,4 +1,5 @@
 // --- CONFIGURATION ---
+// Ensure config.js is loaded before this file in index.html
 const supabaseClient = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
 
 // --- NAVIGATION ---
@@ -11,47 +12,69 @@ function showSection(id) {
 
 // --- DASHBOARD ---
 async function loadDashboard() {
-    const { count } = await supabaseClient
+    // 1. Get Customer Count
+    const { count, error: countError } = await supabaseClient
         .from('customers')
         .select('*', { count: 'exact', head: true });
     
+    if (countError) console.error("Dashboard Error:", countError);
     document.getElementById('total-customers').innerText = count || 0;
 
-    const { data } = await supabaseClient.from('customers').select('current_balance');
+    // 2. Get Total Money
+    const { data, error: moneyError } = await supabaseClient.from('customers').select('current_balance');
+    
+    if (moneyError) console.error("Money Error:", moneyError);
+    
     const total = data ? data.reduce((sum, row) => sum + (row.current_balance || 0), 0) : 0;
     document.getElementById('total-money').innerText = `₦ ${total.toLocaleString()}`;
 }
 
-// --- REGISTER ---
+// --- REGISTER (WITH EMAIL & PIN) ---
 const registerForm = document.getElementById('register-form');
 if(registerForm){
     registerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
         const name = document.getElementById('reg-name').value;
+        const email = document.getElementById('reg-email').value.trim(); // NEW
         const readable_id = document.getElementById('reg-id').value;
-        const pin = document.getElementById('reg-pin').value; // NEW
+        const pin = document.getElementById('reg-pin').value;
         const rate = document.getElementById('reg-rate').value;
+
+        console.log("Attempting to register:", name, email);
 
         const { error } = await supabaseClient.from('customers').insert([
             { 
-                full_name: name, 
+                full_name: name,
+                email: email, // NEW
                 readable_id: readable_id, 
-                pin: pin, // NEW
+                pin: pin, 
                 daily_rate: rate 
             }
         ]);
 
-        if (error) alert('Error: ' + error.message);
-        else {
+        if (error) {
+            alert('Error creating customer: ' + error.message);
+            console.error(error);
+        } else {
             alert('Customer Created Successfully!');
             e.target.reset();
         }
     });
 }
 
-// --- ALL CUSTOMERS ---
+// --- ALL CUSTOMERS LIST ---
 async function loadAllCustomers() {
-    const { data } = await supabaseClient.from('customers').select('*').order('created_at');
+    const { data, error } = await supabaseClient
+        .from('customers')
+        .select('*')
+        .order('created_at');
+
+    if(error) {
+        console.error("Error loading customers:", error);
+        return;
+    }
+
     const tbody = document.querySelector('#customers-table tbody');
     tbody.innerHTML = '';
     
@@ -63,19 +86,36 @@ async function loadAllCustomers() {
                     <td>${c.full_name}</td>
                     <td>${c.daily_rate}</td>
                     <td>₦ ${c.current_balance.toLocaleString()}</td>
+                    <td>
+                        <button 
+                            onclick="deleteCustomer('${c.id}', '${c.full_name}')" 
+                            style="background-color: #ff4444; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px;">
+                            Delete
+                        </button>
+                    </td>
                 </tr>`;
         });
     }
 }
-
 // --- DEPOSIT & WITHDRAWAL LOGIC ---
 
 let currentCustomer = null;
-let currentMode = '';
 
+// This function is called by the "Search" button in HTML
 async function loadCustomerLedger(inputId, mode) {
-    const searchId = document.getElementById(inputId).value;
-    currentMode = mode;
+    console.log(`Searching for user using input ID: ${inputId} in mode: ${mode}`);
+
+    const searchInput = document.getElementById(inputId);
+    if (!searchInput) {
+        console.error("Input field not found in HTML:", inputId);
+        return;
+    }
+
+    const searchId = searchInput.value;
+    if (!searchId) {
+        alert("Please enter a Customer ID");
+        return;
+    }
 
     // 1. Find Customer
     const { data: customers, error } = await supabaseClient
@@ -83,26 +123,45 @@ async function loadCustomerLedger(inputId, mode) {
         .select('*')
         .eq('readable_id', searchId);
 
-    if (error || !customers || !customers.length) {
-        alert('Customer not found');
+    if (error) {
+        console.error("Supabase Error:", error);
+        alert("Database error. Check console.");
+        return;
+    }
+
+    if (!customers || customers.length === 0) {
+        alert('Customer ID not found. Did you register them?');
         return;
     }
 
     currentCustomer = customers[0];
+    console.log("Customer found:", currentCustomer);
     
-    // Update UI Header
+    // 2. Update UI Header
     const prefix = mode === 'deposit' ? 'dep' : 'with';
-    document.getElementById(`${prefix}-profile`).classList.remove('hidden');
+    
+    // Un-hide the profile card
+    const profileCard = document.getElementById(`${prefix}-profile`);
+    if(profileCard) profileCard.classList.remove('hidden');
+
     document.getElementById(`${prefix}-name`).innerText = currentCustomer.full_name;
     document.getElementById(`${prefix}-balance`).innerText = `₦ ${currentCustomer.current_balance.toLocaleString()}`;
-    if(mode === 'deposit') document.getElementById(`dep-rate`).innerText = `₦ ${currentCustomer.daily_rate}`;
+    
+    // Only show rate on deposit page
+    if(mode === 'deposit') {
+        const rateEl = document.getElementById(`dep-rate`);
+        if(rateEl) rateEl.innerText = `₦ ${currentCustomer.daily_rate}`;
+    }
 
-    // 2. Fetch Checkbox State (daily_checklist)
-    const { data: logs } = await supabaseClient
+    // 3. Fetch Checkbox State (daily_checklist)
+    const { data: logs, error: logError } = await supabaseClient
         .from('daily_checklist')
         .select('*')
         .eq('customer_id', currentCustomer.id);
 
+    if (logError) console.error("Error fetching checklist:", logError);
+
+    // Create a lookup map: "month-day" -> true
     const paidMap = {};
     if(logs) {
         logs.forEach(log => {
@@ -110,8 +169,13 @@ async function loadCustomerLedger(inputId, mode) {
         });
     }
 
-    // 3. Render Grid
+    // 4. Render Grid
     const container = document.getElementById(`${prefix}-grid`);
+    if (!container) {
+        console.error(`Grid container ${prefix}-grid not found!`);
+        return;
+    }
+
     container.innerHTML = '';
     container.classList.remove('hidden');
 
@@ -125,11 +189,15 @@ async function loadCustomerLedger(inputId, mode) {
 
         for (let d = 1; d <= 31; d++) {
             const isPaid = paidMap[`${m}-${d}`];
+            
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.className = 'day-check';
             checkbox.checked = !!isPaid;
+            
+            // Add click event
             checkbox.addEventListener('change', (e) => handleCheck(e.target, m, d));
+
             daysDiv.appendChild(checkbox);
         }
         monthDiv.appendChild(daysDiv);
@@ -138,8 +206,12 @@ async function loadCustomerLedger(inputId, mode) {
 }
 
 async function handleCheck(checkbox, monthIndex, dayIndex) {
+    if (!currentCustomer) return;
+
     const amount = parseFloat(currentCustomer.daily_rate);
     const desc = `Contribution: Month ${monthIndex + 1}, Day ${dayIndex}`;
+
+    console.log(`Processing ${checkbox.checked ? 'Deposit' : 'Withdrawal'} for M${monthIndex + 1} D${dayIndex}`);
 
     // --- DEPOSIT (CHECKED) ---
     if (checkbox.checked) {
@@ -149,8 +221,8 @@ async function handleCheck(checkbox, monthIndex, dayIndex) {
             .insert([{ customer_id: currentCustomer.id, month_index: monthIndex, day_index: dayIndex }]);
 
         if (stateError) {
-            alert("Error: " + stateError.message);
-            checkbox.checked = false; 
+            alert("Error saving state: " + stateError.message);
+            checkbox.checked = false; // Undo check
             return;
         }
 
@@ -176,8 +248,8 @@ async function handleCheck(checkbox, monthIndex, dayIndex) {
             .match({ customer_id: currentCustomer.id, month_index: monthIndex, day_index: dayIndex });
 
         if (delError) {
-            alert("Error: " + delError.message);
-            checkbox.checked = true;
+            alert("Error removing state: " + delError.message);
+            checkbox.checked = true; // Undo uncheck
             return;
         }
 
@@ -196,15 +268,68 @@ async function handleCheck(checkbox, monthIndex, dayIndex) {
 }
 
 async function updateBalance(newBalance) {
-    await supabaseClient
+    // Update Database
+    const { error } = await supabaseClient
         .from('customers')
         .update({ current_balance: newBalance })
         .eq('id', currentCustomer.id);
 
+    if (error) {
+        console.error("Balance Update Error:", error);
+        alert("Failed to update balance in database");
+        return;
+    }
+
+    // Update Local Data & UI
     currentCustomer.current_balance = newBalance;
     
-    ['dep', 'with'].forEach(prefix => {
-        const el = document.getElementById(`${prefix}-balance`);
-        if(el) el.innerText = `₦ ${newBalance.toLocaleString()}`;
-    });
+    const depBal = document.getElementById('dep-balance');
+    const withBal = document.getElementById('with-balance');
+    
+    if(depBal) depBal.innerText = `₦ ${newBalance.toLocaleString()}`;
+    if(withBal) withBal.innerText = `₦ ${newBalance.toLocaleString()}`;
+}
+
+// --- DELETE CUSTOMER ---
+async function deleteCustomer(uuid, name) {
+    // 1. Confirm with the Admin
+    const confirmed = confirm(`Are you sure you want to delete ${name}? \n\nThis will permanently delete their TRANSACTION HISTORY and BALANCE. This cannot be undone.`);
+    
+    if (!confirmed) return;
+
+    // 2. Delete from 'daily_checklist' (The ticks)
+    const { error: checkError } = await supabaseClient
+        .from('daily_checklist')
+        .delete()
+        .eq('customer_id', uuid);
+
+    if (checkError) {
+        alert("Error deleting checklist: " + checkError.message);
+        return;
+    }
+
+    // 3. Delete from 'transactions' (The history)
+    const { error: transError } = await supabaseClient
+        .from('transactions')
+        .delete()
+        .eq('customer_id', uuid);
+
+    if (transError) {
+        alert("Error deleting transactions: " + transError.message);
+        return;
+    }
+
+    // 4. Finally, Delete the Customer
+    const { error: custError } = await supabaseClient
+        .from('customers')
+        .delete()
+        .eq('id', uuid);
+
+    if (custError) {
+        alert("Error deleting customer: " + custError.message);
+    } else {
+        alert(`${name} has been deleted.`);
+        loadAllCustomers(); // Refresh the list
+        loadDashboard();    // Update the total money stats
+    }
 }

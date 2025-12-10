@@ -41,6 +41,8 @@
                 <h1>Register Customer</h1>
                 <form id="register-form">
                     <input type="text" id="reg-name" placeholder="Full Name" required>
+                    <input type="email" id="reg-email" placeholder="Email Address" required>
+                    
                     <input type="text" id="reg-id" placeholder="Assign ID (e.g. 101)" required>
                     <input type="text" id="reg-pin" placeholder="Set 4-Digit PIN" maxlength="4" required>
                     <input type="number" id="reg-rate" placeholder="Daily Contribution Amount" required>
@@ -57,7 +59,7 @@
                             <th>Name</th>
                             <th>Daily Rate</th>
                             <th>Balance</th>
-                        </tr>
+                            <th>Action</th> </tr>
                     </thead>
                     <tbody></tbody>
                 </table>
@@ -76,7 +78,7 @@
                     <p>Rate: <span id="dep-rate">0</span></p>
                 </div>
 
-                <div id="deposit-grid" class="months-container hidden"></div>
+                <div id="dep-grid" class="months-container hidden"></div>
             </div>
 
             <div id="withdrawal" class="section">
