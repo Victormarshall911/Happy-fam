@@ -6,27 +6,100 @@
     <title>My Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { margin: 0; font-family: sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; min-height: 100vh; }
-        .mobile-container { width: 100%; max-width: 400px; padding: 20px; box-sizing: border-box; }
-        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-top: 20px; }
+        body { 
+            margin: 0; 
+            font-family: 'Segoe UI', sans-serif; 
+            background-color: #f0f2f5; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; /* Centers vertically */
+            min-height: 100vh; 
+            padding: 20px; /* Adds space on edges */
+            box-sizing: border-box;
+        }
+
+        .mobile-container { 
+            width: 100%; 
+            max-width: 500px; /* Increased slightly for tablets */
+            background: transparent;
+        }
+
+        .card { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08); 
+            margin-bottom: 20px; 
+        }
         
-        .balance-box { background: #4CAF50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
-        .balance-box h1 { margin: 10px 0; font-size: 2.5rem; }
+        .balance-box { 
+            background: linear-gradient(135deg, #4CAF50, #45a049); /* Nice gradient */
+            color: white; 
+            padding: 25px; 
+            border-radius: 12px; 
+            margin-bottom: 25px; 
+            text-align: center; 
+            box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3);
+        }
+        
+        .balance-box h1 { margin: 10px 0; font-size: 2.8rem; letter-spacing: -1px; }
         
         .history-list { list-style: none; padding: 0; }
-        .history-item { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
-        .date-badge { font-size: 0.75rem; color: #888; margin-top: 4px; }
+        .history-item { 
+            border-bottom: 1px solid #f0f0f0; 
+            padding: 15px 0; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+        .history-item:last-child { border-bottom: none; }
+
+        .date-badge { font-size: 0.75rem; color: #999; margin-top: 4px; display: block;}
         
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
-        .input-group input { width: 100%; padding: 12px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 6px; }
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #444; font-size: 0.9rem; }
+        .input-group input { 
+            width: 100%; 
+            padding: 14px; 
+            box-sizing: border-box; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            font-size: 1rem;
+            transition: border 0.3s;
+        }
+        .input-group input:focus { border-color: #4CAF50; outline: none; }
         
-        .btn { width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; }
-        .btn:hover { background: #45a049; }
-        .btn-red { background: #ff4444; margin-top: 20px; }
-        .btn-red:hover { background: #e03333; }
+        .btn { 
+            width: 100%; 
+            padding: 14px; 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            font-size: 1rem; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: transform 0.1s;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-red { background: #ff4444; margin-top: 20px; color: white;}
         
-        .error-msg { color: red; display: none; text-align: center; margin-top: 10px; font-size: 0.9rem; }
+        .error-msg { 
+            color: #d32f2f; 
+            background: #ffebee; 
+            padding: 10px; 
+            border-radius: 6px; 
+            display: none; 
+            text-align: center; 
+            margin-top: 15px; 
+            font-size: 0.9rem; 
+        }
+
+        /* Mobile tweaks */
+        @media (max-width: 480px) {
+            .card { padding: 20px; }
+            .balance-box h1 { font-size: 2.2rem; }
+        }
     </style>
 </head>
 <body>
